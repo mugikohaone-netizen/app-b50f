@@ -193,10 +193,10 @@
   }
 
   .step-node{margin-bottom:6px; max-width:100%;}
-  .step-line{display:flex; align-items:center; gap:8px; flex-wrap:wrap; max-width:100%;}
+  .step-line{display:flex; align-items:center; gap:8px; flex-wrap:nowrap; max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:6px;}
   .step-line input[type=checkbox]{accent-color: var(--shu); width:15px; height:15px; cursor:pointer; flex-shrink:0;}
   .step-line input[type=text]{
-    flex:1 1 120px; min-width:0; border:none; border-bottom:1px solid var(--line); background:transparent;
+    flex:0 0 auto; min-width:110px; width:14ch; border:none; border-bottom:1px solid var(--line); background:transparent;
     font-size:13px; padding:5px 2px; color:var(--ink); font-family:'Noto Sans JP', sans-serif;
   }
   .step-line input[type=text]:focus{outline:none; border-color:var(--shu);}
@@ -429,6 +429,11 @@ function escapeHtml(s){
 function autoGrow(el){
   el.style.height = 'auto';
   el.style.height = el.scrollHeight + 'px';
+}
+
+function autoWidth(el){
+  const len = (el.value || '').length;
+  el.style.width = Math.max(10, len + 2) + 'ch';
 }
 
 document.getElementById('addGoalBtn').addEventListener('click', ()=>{
@@ -708,6 +713,7 @@ function renderStepList(stepArr, container, goal){
     });
     textInput.addEventListener('input', ()=>{
       step.text = textInput.value;
+      autoWidth(textInput);
       saveState();
     });
     dateInput.addEventListener('change', ()=>{
@@ -736,6 +742,7 @@ function renderStepList(stepArr, container, goal){
       renderStepList(step.children, childrenEl, goal);
     }
     container.appendChild(node);
+    autoWidth(textInput);
   });
   // 既存ノード以外を消さないよう、呼び出し側で container を都度クリアしているケースに対応
   if(container.dataset) container.dataset.rendered = '1';
