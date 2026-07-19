@@ -73,7 +73,7 @@
   #goalList{display:flex; flex-direction:column; gap:14px; margin-bottom:16px;}
   .goal-row{border:1px solid var(--line); border-radius:3px; padding:16px 18px; background: rgba(255,255,255,0.035); position:relative;}
   .goal-row .top-line{display:flex; gap:10px; align-items:center; margin-bottom:12px;}
-  .goal-row input[type=text]{flex:1; border:none; border-bottom:1px solid var(--line); background:transparent; font-family:'Shippori Mincho', serif; font-size:17px; font-weight:700; padding: 4px 2px 8px; color:var(--ink);}
+  .goal-row input[type=text]{flex:1; min-width:0; border:none; border-bottom:1px solid var(--line); background:transparent; font-family:'Shippori Mincho', serif; font-size:17px; font-weight:700; padding: 4px 2px 8px; color:var(--ink);}
   .goal-row input[type=text]:focus{outline:none; border-color:var(--shu);}
   .goal-row .remove-btn{background:none; border:none; cursor:pointer; color:var(--ink-soft); font-size:18px; line-height:1; padding:4px 6px;}
   .goal-row .remove-btn:hover{color:var(--shu);}
@@ -109,19 +109,21 @@
   .result-row.top1{border-color: var(--gold); border-width:2px; background: linear-gradient(90deg, rgba(232,181,101,0.16), rgba(255,255,255,0.04));}
   .belt{position:absolute; left:0; top:0; bottom:0; width:6px; background: var(--washi-2);}
   .result-row.top1 .belt{background: var(--gold);}
-  .rrow-top{display:flex; align-items:center; gap:10px; margin-bottom:6px;}
-  .rank-num{font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--ink-soft); font-weight:700; min-width:26px;}
-  .rname{font-family:'Shippori Mincho', serif; font-size:18px; font-weight:700; flex:1;}
+  .rrow-top{display:flex; align-items:flex-start; gap:10px; margin-bottom:8px;}
+  .rrow-head{display:flex; align-items:baseline; gap:8px; flex:1; min-width:0;}
+  .rank-num{font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--ink-soft); font-weight:700; min-width:22px; flex-shrink:0;}
+  .rname{font-family:'Shippori Mincho', serif; font-size:17px; font-weight:700; line-height:1.4; flex:1 1 auto; min-width:0; overflow-wrap:break-word; word-break:break-word;}
+  .rrow-meta{display:flex; align-items:center; gap:8px; margin: 2px 0 6px 30px; flex-wrap:wrap;}
   .score-pill{font-family:'JetBrains Mono', monospace; font-size:11px; font-weight:700; color:var(--ink-soft); background: var(--washi-2); padding:3px 8px; border-radius:20px; white-space:nowrap;}
-  .order-btns{display:flex; flex-direction:column; gap:2px;}
+  .order-btns{display:flex; flex-direction:column; gap:2px; flex-shrink:0;}
   .order-btns button{width:22px; height:18px; border:1px solid var(--ink-soft); background:transparent; color:var(--ink-soft); font-size:10px; line-height:1; cursor:pointer; border-radius:2px; padding:0;}
   .order-btns button:hover{border-color:var(--shu); color:var(--shu);}
   .order-btns button:disabled{opacity:0.25; cursor:default;}
-  .rmeta{font-size:12.5px; color:var(--ink-soft); margin: 0 0 10px; padding-left:36px;}
-  .top1-tag{font-family:'JetBrains Mono', monospace; font-size:10.5px; color:var(--gold); font-weight:700; letter-spacing:0.05em; padding-left:36px; margin-bottom:8px; display:block;}
+  .rmeta{font-size:12.5px; color:var(--ink-soft); margin: 0 0 10px; padding-left:30px;}
+  .top1-tag{font-family:'JetBrains Mono', monospace; font-size:10.5px; color:var(--gold); font-weight:700; letter-spacing:0.05em; padding-left:30px; margin-bottom:8px; display:block;}
 
   .drill-toggle{
-    margin-left:36px; background:none; border:1px solid var(--line); color:var(--shu); font-size:12.5px;
+    margin-left:30px; background:none; border:1px solid var(--line); color:var(--shu); font-size:12.5px;
     font-weight:600; cursor:pointer; padding:7px 12px; font-family:'Noto Sans JP', sans-serif;
     border-radius:20px;
   }
@@ -204,6 +206,8 @@
   .step-line.done input[type=date]{text-decoration: line-through; color:var(--ink-soft);}
   .step-line button{background:none; border:none; cursor:pointer; font-size:12.5px; color:var(--ink-soft); padding:2px 5px; flex-shrink:0; white-space:nowrap;}
   .step-line button:hover{color:var(--shu);}
+  .step-line .add-sibling-btn{color:var(--blue);}
+  .step-line .add-sibling-btn:hover{color:var(--gold);}
   .step-children{margin-left:18px; border-left:1px dashed var(--line); padding-left:10px; margin-top:6px; max-width:calc(100% - 18px);}
   .add-root-step{
     margin-top:8px; background:transparent; border:1px dashed var(--ink-soft); color:var(--ink-soft);
@@ -479,13 +483,17 @@ function renderResults(){
     row.innerHTML = `
       <div class="belt"></div>
       <div class="rrow-top">
-        <span class="rank-num">${String(idx+1).padStart(2,'0')}</span>
-        <span class="rname">${escapeHtml(g.name)}</span>
-        <span class="score-pill">得${g.value} − 難${g.difficulty} = ${score}</span>
+        <div class="rrow-head">
+          <span class="rank-num">${String(idx+1).padStart(2,'0')}</span>
+          <span class="rname">${escapeHtml(g.name)}</span>
+        </div>
         <div class="order-btns">
           <button data-dir="-1" ${idx===0?'disabled':''} title="上へ">▲</button>
           <button data-dir="1" ${idx===order.length-1?'disabled':''} title="下へ">▼</button>
         </div>
+      </div>
+      <div class="rrow-meta">
+        <span class="score-pill">得${g.value} − 難${g.difficulty} = ${score}</span>
       </div>
       ${idx===0 ? `<span class="top1-tag">◆ 今ここに全力を注ぐ</span>` : ''}
       ${g.sacrifice ? `<div class="rmeta">手放すもの：${escapeHtml(g.sacrifice)}</div>` : ''}
@@ -661,6 +669,7 @@ function renderStepList(stepArr, container, goal){
         <input type="checkbox" ${step.done?'checked':''} title="達成したらチェック">
         <input type="text" placeholder="次にやること・達成条件" value="${escapeHtml(step.text)}">
         <input type="date" class="${step.dueDate?'has-date':''}" value="${step.dueDate||''}" title="期限（任意）">
+        <button class="add-sibling-btn" title="同じ階層に追加">＋同列</button>
         <button class="add-child-btn" title="さらに深掘り">＋深掘り</button>
         <button class="del-step-btn" title="削除">✕</button>
       </div>
@@ -684,6 +693,12 @@ function renderStepList(stepArr, container, goal){
       step.dueDate = dateInput.value;
       dateInput.classList.toggle('has-date', !!step.dueDate);
       saveState();
+    });
+    node.querySelector('.add-sibling-btn').addEventListener('click', ()=>{
+      const idx = stepArr.indexOf(step);
+      stepArr.splice(idx+1, 0, newStep(''));
+      saveState();
+      renderStepList(stepArr, container, goal);
     });
     node.querySelector('.add-child-btn').addEventListener('click', ()=>{
       step.children.push(newStep(''));
