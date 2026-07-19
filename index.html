@@ -66,15 +66,20 @@
 
   .card{background: var(--washi); border-radius: 4px; padding: 30px 26px; margin-bottom: 28px; box-shadow: 0 20px 50px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.05); position:relative;}
   .card::before{content:""; position:absolute; left:0; top:0; bottom:0; width:5px; background: var(--shu);}
-  .card h2{font-family:'Shippori Mincho', serif; font-size:22px; font-weight:700; margin: 0 0 4px; display:flex; align-items:baseline; gap:10px;}
+  .card h2{font-family:'Shippori Mincho', serif; font-size:22px; font-weight:700; margin: 0 0 4px; display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 10px;}
+  .card h2 .h2-title{flex-shrink:0; white-space:nowrap;}
   .card h2 small{font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--ink-soft); font-weight:600; letter-spacing:0.05em;}
   .card p.desc{color:var(--ink-soft); font-size:13.5px; margin: 0 0 22px; line-height:1.7;}
 
   #goalList{display:flex; flex-direction:column; gap:14px; margin-bottom:16px;}
   .goal-row{border:1px solid var(--line); border-radius:3px; padding:16px 18px; background: rgba(255,255,255,0.035); position:relative;}
-  .goal-row .top-line{display:flex; gap:10px; align-items:center; margin-bottom:12px;}
-  .goal-row input[type=text]{flex:1; min-width:0; border:none; border-bottom:1px solid var(--line); background:transparent; font-family:'Shippori Mincho', serif; font-size:17px; font-weight:700; padding: 4px 2px 8px; color:var(--ink);}
-  .goal-row input[type=text]:focus{outline:none; border-color:var(--shu);}
+  .goal-row .top-line{display:flex; gap:10px; align-items:flex-start; margin-bottom:12px;}
+  .goal-row .name-input{
+    flex:1; min-width:0; border:none; border-bottom:1px solid var(--line); background:transparent;
+    font-family:'Shippori Mincho', serif; font-size:17px; font-weight:700; padding: 4px 2px 8px; color:var(--ink);
+    resize:none; overflow:hidden; line-height:1.4;
+  }
+  .goal-row .name-input:focus{outline:none; border-color:var(--shu);}
   .goal-row .remove-btn{background:none; border:none; cursor:pointer; color:var(--ink-soft); font-size:18px; line-height:1; padding:4px 6px;}
   .goal-row .remove-btn:hover{color:var(--shu);}
   .sliders{display:grid; grid-template-columns:1fr 1fr; gap:16px 20px; margin-bottom:12px;}
@@ -248,20 +253,20 @@
 <div class="wrap">
 
   <div class="card">
-    <h2>一、書き出す <small>LIST YOUR DESIRES</small></h2>
+    <h2><span class="h2-title">一、書き出す</span> <small>LIST YOUR DESIRES</small></h2>
     <p class="desc">やりたいことをすべて並べよ。それぞれについて「得られるものの大きさ」と「達成の困難度」を見積もる。</p>
     <div id="goalList"></div>
     <button class="add-btn" id="addGoalBtn">＋ やりたいことを追加する</button>
   </div>
 
   <div class="card">
-    <h2>二、審判する <small>DRAFT ORDER</small></h2>
+    <h2><span class="h2-title">二、審判する</span> <small>DRAFT ORDER</small></h2>
     <p class="desc">得点順の叩き台を出す。並びはあくまで仮。しっくりこなければ、後で自分の手で並べ替えよ。</p>
     <button class="judge-btn" id="judgeBtn">審　判　す　る</button>
   </div>
 
   <div class="card" id="resultsCard" style="display:none;">
-    <h2>三、並べ替える <small>YOUR CALL</small></h2>
+    <h2><span class="h2-title">三、並べ替える</span> <small>YOUR CALL</small></h2>
     <p class="desc">一番上を全力で追え。余裕ができたら次へ。順番は▲▼でいつでも組み替えてよい。次の行動はどこまでも深掘りせよ。</p>
     <button class="reset-order-btn" id="resortBtn">↻ スコア順に並べ直す</button>
     <button class="reset-order-btn" id="mindmapBtn">🗺 俯瞰マップで見る</button>
@@ -269,7 +274,7 @@
   </div>
 
   <div class="card">
-    <h2>四、出し入れする <small>EXPORT & IMPORT</small></h2>
+    <h2><span class="h2-title">四、出し入れする</span> <small>EXPORT & IMPORT</small></h2>
     <p class="desc">この結果を保存・復元し、あるいはAIに人生相談する。</p>
     <div class="util-row">
       <button class="util-btn" id="exportBtn">⬇ JSONで保存する</button>
@@ -371,7 +376,7 @@ function renderGoals(){
     row.className = 'goal-row';
     row.innerHTML = `
       <div class="top-line">
-        <input type="text" placeholder="例：柔術の道場に週2で通う" data-field="name" value="${escapeHtml(g.name)}">
+        <textarea class="name-input" rows="1" placeholder="例：柔術の道場に週2で通う" data-field="name">${escapeHtml(g.name)}</textarea>
         <button class="remove-btn" title="削除">✕</button>
       </div>
       <div class="sliders">
@@ -389,7 +394,8 @@ function renderGoals(){
       <span class="field-label" style="margin-top:10px;">達成を阻んでいるもの（任意）</span>
       <textarea data-field="obstacle" placeholder="例：何から手をつければいいかわからない、時間帯が合わない">${escapeHtml(g.obstacle)}</textarea>
     `;
-    row.querySelector('[data-field="name"]').addEventListener('input', e=>{ g.name = e.target.value; saveState(); });
+    const nameInput = row.querySelector('[data-field="name"]');
+    nameInput.addEventListener('input', e=>{ g.name = e.target.value; autoGrow(nameInput); saveState(); });
     row.querySelector('[data-field="sacrifice"]').addEventListener('input', e=>{ g.sacrifice = e.target.value; saveState(); });
     row.querySelector('[data-field="obstacle"]').addEventListener('input', e=>{ g.obstacle = e.target.value; saveState(); });
     const valueSlider = row.querySelector('[data-field="value"]');
@@ -412,11 +418,17 @@ function renderGoals(){
       renderGoals();
     });
     list.appendChild(row);
+    autoGrow(nameInput);
   });
 }
 
 function escapeHtml(s){
   return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function autoGrow(el){
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
 }
 
 document.getElementById('addGoalBtn').addEventListener('click', ()=>{
