@@ -558,11 +558,19 @@ function closeDrillModal(){
 document.getElementById('drillModalCloseBtn').addEventListener('click', closeDrillModal);
 
 /* ---------- 俯瞰マップ ---------- */
+function estimateNodeHeight(text, isGoal){
+  const charsPerLine = isGoal ? 11 : 15; // ノード幅・フォントサイズから逆算した目安
+  const len = (text || '').length || 1;
+  const lines = Math.max(1, Math.ceil(len / charsPerLine));
+  const lineHeight = isGoal ? 21 : 18;
+  const vPad = isGoal ? 26 : 22; // padding + border ぶんの余白
+  return lines * lineHeight + vPad;
+}
+
 function buildMindmapLayout(orderedGoals){
   const colWidth = 220;
-  const rowHeight = 46;
-  const goalGapRows = 1;
-  let cursorRow = 0;
+  const minGap = 14; // ノード同士の最低すきま
+  let cursorY = 0;
   const nodes = [];
   const edges = [];
   let maxDepth = 0;
@@ -572,8 +580,9 @@ function buildMindmapLayout(orderedGoals){
     const kids = data.children || [];
     let y;
     if(kids.length === 0){
-      y = cursorRow * rowHeight;
-      cursorRow++;
+      const h = estimateNodeHeight(data.text, !!extra.isGoal);
+      y = cursorY + h/2;
+      cursorY += h + minGap;
     } else {
       const childNodes = kids.map(k => layoutNode(k, depth+1, x+colWidth, extra));
       const ys = childNodes.map(n=>n.y);
@@ -589,10 +598,10 @@ function buildMindmapLayout(orderedGoals){
 
   orderedGoals.forEach((g, idx)=>{
     layoutNode({text:g.name, done:false, children:g.steps}, 0, 0, {isGoal:true, rank: idx+1, done:false});
-    cursorRow += goalGapRows;
+    cursorY += 26; // ゴール同士の追加の間隔
   });
 
-  const totalHeight = Math.max(cursorRow * rowHeight, rowHeight);
+  const totalHeight = Math.max(cursorY, 60);
   const totalWidth = (maxDepth+1) * colWidth + 40;
   return {nodes, edges, totalHeight, totalWidth};
 }
