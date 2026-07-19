@@ -169,7 +169,7 @@
     flex-direction:column;
   }
   #mindmapModal.open{display:flex;}
-  .mindmap-scroll{flex:1 1 auto; overflow:auto; -webkit-overflow-scrolling:touch; background:
+  .mindmap-scroll{flex:1 1 auto; overflow:auto; -webkit-overflow-scrolling:touch; cursor:grab; background:
     radial-gradient(circle at 1px 1px, rgba(255,255,255,0.06) 1px, transparent 0) 0 0/22px 22px;
   }
   .mindmap-canvas{position:relative;}
@@ -179,7 +179,7 @@
     max-width:190px; padding:8px 12px; border-radius:6px;
     font-family:'Noto Sans JP', sans-serif; font-size:12.5px; line-height:1.5;
     background: var(--washi); border:1px solid var(--line); color:var(--ink);
-    box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.3); cursor:pointer;
   }
   .mm-node.mm-goal{
     font-family:'Shippori Mincho', serif; font-weight:700; font-size:14px;
@@ -275,7 +275,7 @@
 
   <div class="card">
     <h2><span class="h2-title">四、出し入れする</span> <small>EXPORT & IMPORT</small></h2>
-    <p class="desc">この結果を保存・復元し、あるいはAIに人生相談する。</p>
+    <p class="desc">入力は自動でこの端末に保存される（消えない）。JSONは他端末への引っ越しやAIへの人生相談用。</p>
     <div class="util-row">
       <button class="util-btn" id="exportBtn">⬇ JSONで保存する</button>
       <button class="util-btn" id="copyJsonBtn">⧉ JSONをコピー</button>
@@ -318,7 +318,7 @@
 <div id="mindmapModal">
   <div class="drill-modal-header">
     <button class="drill-modal-back" id="mindmapCloseBtn">← 戻る</button>
-    <div class="drill-modal-title">俯瞰マップ <span style="font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-soft); font-weight:400;">— 指で動かして全体を見よ</span></div>
+    <div class="drill-modal-title">俯瞰マップ <span style="font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-soft); font-weight:400;">— 指でスワイプ（PCはドラッグ）で移動、ダブルタップ／ダブルクリックで詳細へ</span></div>
   </div>
   <div class="mindmap-scroll" id="mindmapScroll">
     <div class="mindmap-canvas" id="mindmapCanvas">
@@ -580,35 +580,48 @@ function buildMindmapLayout(orderedGoals){
   const edges = [];
   let maxDepth = 0;
 
-  function layoutNode(data, depth, x, extra){
+  function layoutNode(data, depth, x, ctx){
     maxDepth = Math.max(maxDepth, depth);
+    const isGoal = depth === 0;
     const kids = data.children || [];
     let y;
     if(kids.length === 0){
-      const h = estimateNodeHeight(data.text, !!extra.isGoal);
+      const h = estimateNodeHeight(data.text, isGoal);
       y = cursorY + h/2;
       cursorY += h + minGap;
     } else {
-      const childNodes = kids.map(k => layoutNode(k, depth+1, x+colWidth, extra));
+      const childNodes = kids.map(k => layoutNode(k, depth+1, x+colWidth, ctx));
       const ys = childNodes.map(n=>n.y);
       y = (Math.min(...ys) + Math.max(...ys)) / 2;
       childNodes.forEach(cn=>{
-        edges.push({x1:x, y1:y, x2:cn.x, y2:cn.y, rank: extra.rank});
+        edges.push({x1:x, y1:y, x2:cn.x, y2:cn.y, rank: ctx.rank});
       });
     }
-    const node = Object.assign({x, y, text: data.text || '（未入力）', done: !!data.done, depth}, extra);
+    const node = {
+      x, y, depth, isGoal,
+      text: data.text || '（未入力）',
+      done: !!data.done,
+      rank: ctx.rank,
+      goalId: ctx.goalId
+    };
     nodes.push(node);
     return node;
   }
 
   orderedGoals.forEach((g, idx)=>{
-    layoutNode({text:g.name, done:false, children:g.steps}, 0, 0, {isGoal:true, rank: idx+1, done:false});
+    layoutNode({text:g.name, done:false, children:g.steps}, 0, 0, {rank: idx+1, goalId: g.id});
     cursorY += 26; // ゴール同士の追加の間隔
   });
 
   const totalHeight = Math.max(cursorY, 60);
   const totalWidth = (maxDepth+1) * colWidth + 40;
   return {nodes, edges, totalHeight, totalWidth};
+}
+
+function openNodeDetail(goalId){
+  document.getElementById('mindmapModal').classList.remove('open');
+  document.body.style.overflow = 'hidden'; // drillModalを開くのでhiddenのまま
+  openDrillModal(goalId);
 }
 
 function renderMindmap(){
@@ -654,7 +667,26 @@ function renderMindmap(){
     div.className = 'mm-node' + (n.isGoal ? ' mm-goal' : '') + (n.isGoal && n.rank===1 ? ' mm-top1' : '') + (!n.isGoal && n.done ? ' mm-done' : '');
     div.style.left = (n.x + padX) + 'px';
     div.style.top = (n.y + padY) + 'px';
+    div.title = 'ダブルタップ／ダブルクリックで詳細へ';
     div.innerHTML = (n.isGoal ? `<span class="mm-rank-badge">${String(n.rank).padStart(2,'0')}</span>` : (n.done ? '✓ ' : '○ ')) + escapeHtml(n.text);
+
+    // ダブルクリック（マウス）で詳細を開く
+    div.addEventListener('dblclick', (e)=>{
+      e.stopPropagation();
+      openNodeDetail(n.goalId);
+    });
+    // ダブルタップ（タッチ）を独自検知して詳細を開く
+    let lastTap = 0;
+    div.addEventListener('touchend', (e)=>{
+      const now = Date.now();
+      if(now - lastTap < 350){
+        e.preventDefault();
+        e.stopPropagation();
+        openNodeDetail(n.goalId);
+      }
+      lastTap = now;
+    });
+
     canvas.appendChild(div);
   });
 }
@@ -664,6 +696,29 @@ document.getElementById('mindmapBtn').addEventListener('click', ()=>{
   document.getElementById('mindmapModal').classList.add('open');
   document.body.style.overflow = 'hidden';
 });
+
+/* マウスでのドラッグパン（タッチは標準スクロールで対応済み） */
+(function setupMindmapDragPan(){
+  const scrollEl = document.getElementById('mindmapScroll');
+  let isDown = false, startX = 0, startY = 0, startLeft = 0, startTop = 0, moved = false;
+  scrollEl.addEventListener('mousedown', (e)=>{
+    isDown = true; moved = false;
+    startX = e.clientX; startY = e.clientY;
+    startLeft = scrollEl.scrollLeft; startTop = scrollEl.scrollTop;
+    scrollEl.style.cursor = 'grabbing';
+  });
+  window.addEventListener('mousemove', (e)=>{
+    if(!isDown) return;
+    const dx = e.clientX - startX, dy = e.clientY - startY;
+    if(Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
+    scrollEl.scrollLeft = startLeft - dx;
+    scrollEl.scrollTop = startTop - dy;
+  });
+  window.addEventListener('mouseup', ()=>{
+    isDown = false;
+    scrollEl.style.cursor = 'grab';
+  });
+})();
 document.getElementById('mindmapCloseBtn').addEventListener('click', ()=>{
   document.getElementById('mindmapModal').classList.remove('open');
   document.body.style.overflow = '';
