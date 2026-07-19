@@ -1,4 +1,4 @@
-const CACHE = 'app-mrrs8fwm';
+const CACHE = 'app-mrrsprts';
 const FILES = ['./','./index.html'];
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting()));
