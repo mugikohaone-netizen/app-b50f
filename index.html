@@ -192,6 +192,36 @@
     color: var(--gold); margin-right:5px;
   }
 
+  /* ---------- 俯瞰マップ：詳細カード ---------- */
+  .mm-detail-backdrop{
+    position:absolute; inset:0; z-index:50;
+    background: rgba(10,11,14,0.6);
+    display:flex; align-items:center; justify-content:center;
+    padding:24px;
+  }
+  .mm-detail-card{
+    max-width:340px; width:100%;
+    background: var(--washi); border:1px solid var(--washi-2); border-radius:6px;
+    padding:20px 20px 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  }
+  .mm-detail-kind{
+    font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--gold); font-weight:700;
+    letter-spacing:0.05em; margin-bottom:6px;
+  }
+  .mm-detail-title{
+    font-family:'Shippori Mincho', serif; font-size:17px; font-weight:700; color:var(--ink);
+    line-height:1.4; margin-bottom:14px; overflow-wrap:break-word;
+  }
+  .mm-detail-row{
+    font-size:12.5px; color:var(--ink); line-height:1.7; margin-bottom:8px; overflow-wrap:break-word;
+  }
+  .mm-detail-label{
+    display:block; font-size:10.5px; color:var(--ink-soft); font-family:'JetBrains Mono', monospace;
+    margin-bottom:2px;
+  }
+  .mm-detail-btns{display:flex; gap:8px; margin-top:14px;}
+  .mm-detail-btns .util-btn{min-width:0; font-size:12px; padding:9px 10px;}
+
   .step-node{margin-bottom:6px; max-width:100%;}
   .step-line{display:flex; align-items:center; gap:8px; flex-wrap:nowrap; max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:6px;}
   .step-line input[type=checkbox]{accent-color: var(--shu); width:15px; height:15px; cursor:pointer; flex-shrink:0;}
@@ -580,7 +610,7 @@ function buildMindmapLayout(orderedGoals){
   const edges = [];
   let maxDepth = 0;
 
-  function layoutNode(data, depth, x, ctx){
+  function layoutNode(data, depth, x, ctx, path){
     maxDepth = Math.max(maxDepth, depth);
     const isGoal = depth === 0;
     const kids = data.children || [];
@@ -590,7 +620,7 @@ function buildMindmapLayout(orderedGoals){
       y = cursorY + h/2;
       cursorY += h + minGap;
     } else {
-      const childNodes = kids.map(k => layoutNode(k, depth+1, x+colWidth, ctx));
+      const childNodes = kids.map(k => layoutNode(k, depth+1, x+colWidth, ctx, [...path, data.text || '（未入力）']));
       const ys = childNodes.map(n=>n.y);
       y = (Math.min(...ys) + Math.max(...ys)) / 2;
       childNodes.forEach(cn=>{
@@ -601,15 +631,25 @@ function buildMindmapLayout(orderedGoals){
       x, y, depth, isGoal,
       text: data.text || '（未入力）',
       done: !!data.done,
+      dueDate: data.dueDate || '',
       rank: ctx.rank,
-      goalId: ctx.goalId
+      goalId: ctx.goalId,
+      path: path,
+      value: isGoal ? data.value : undefined,
+      difficulty: isGoal ? data.difficulty : undefined,
+      sacrifice: isGoal ? data.sacrifice : undefined,
+      obstacle: isGoal ? data.obstacle : undefined,
+      stepsCount: isGoal ? countSteps(data.children) : undefined
     };
     nodes.push(node);
     return node;
   }
 
   orderedGoals.forEach((g, idx)=>{
-    layoutNode({text:g.name, done:false, children:g.steps}, 0, 0, {rank: idx+1, goalId: g.id});
+    layoutNode({
+      text:g.name, done:false, children:g.steps,
+      value:g.value, difficulty:g.difficulty, sacrifice:g.sacrifice, obstacle:g.obstacle
+    }, 0, 0, {rank: idx+1, goalId: g.id}, []);
     cursorY += 26; // ゴール同士の追加の間隔
   });
 
@@ -619,12 +659,61 @@ function buildMindmapLayout(orderedGoals){
 }
 
 function openNodeDetail(goalId){
+  closeNodeDetailPopup();
   document.getElementById('mindmapModal').classList.remove('open');
   document.body.style.overflow = 'hidden'; // drillModalを開くのでhiddenのまま
   openDrillModal(goalId);
 }
 
+function closeNodeDetailPopup(){
+  const existing = document.getElementById('mmDetailBackdrop');
+  if(existing) existing.remove();
+}
+
+function showNodeDetail(n){
+  closeNodeDetailPopup();
+  const backdrop = document.createElement('div');
+  backdrop.id = 'mmDetailBackdrop';
+  backdrop.className = 'mm-detail-backdrop';
+
+  const card = document.createElement('div');
+  card.className = 'mm-detail-card';
+
+  let bodyHtml = '';
+  if(n.isGoal){
+    const score = (n.value ?? 0) - (n.difficulty ?? 0);
+    bodyHtml += `<div class="mm-detail-row"><span class="mm-detail-label">スコア</span>得${n.value} − 難${n.difficulty} = ${score}</div>`;
+    if(n.sacrifice) bodyHtml += `<div class="mm-detail-row"><span class="mm-detail-label">手放すもの</span>${escapeHtml(n.sacrifice)}</div>`;
+    if(n.obstacle) bodyHtml += `<div class="mm-detail-row"><span class="mm-detail-label">阻んでいるもの</span>${escapeHtml(n.obstacle)}</div>`;
+    const sc = n.stepsCount || {total:0, done:0};
+    bodyHtml += `<div class="mm-detail-row"><span class="mm-detail-label">深掘り進捗</span>${sc.total ? `${sc.done}/${sc.total} 完了` : 'まだ深掘りしていない'}</div>`;
+  } else {
+    if(n.path && n.path.length){
+      bodyHtml += `<div class="mm-detail-row"><span class="mm-detail-label">どこの下か</span>${n.path.map(escapeHtml).join(' › ')}</div>`;
+    }
+    bodyHtml += `<div class="mm-detail-row"><span class="mm-detail-label">状態</span>${n.done ? '✓ 達成済み' : '○ 未達成'}</div>`;
+    bodyHtml += `<div class="mm-detail-row"><span class="mm-detail-label">期限</span>${n.dueDate ? n.dueDate : '設定なし'}</div>`;
+  }
+
+  card.innerHTML = `
+    <div class="mm-detail-kind">${n.isGoal ? '◆ ゴール' : '○ 行動'}</div>
+    <div class="mm-detail-title">${escapeHtml(n.text)}</div>
+    ${bodyHtml}
+    <div class="mm-detail-btns">
+      <button class="util-btn" id="mmDetailEditBtn">✎ 編集する</button>
+      <button class="util-btn" id="mmDetailCloseBtn">閉じる</button>
+    </div>
+  `;
+  backdrop.appendChild(card);
+  document.getElementById('mindmapModal').appendChild(backdrop);
+
+  backdrop.addEventListener('click', (e)=>{ if(e.target === backdrop) closeNodeDetailPopup(); });
+  document.getElementById('mmDetailCloseBtn').addEventListener('click', closeNodeDetailPopup);
+  document.getElementById('mmDetailEditBtn').addEventListener('click', ()=> openNodeDetail(n.goalId));
+}
+
 function renderMindmap(){
+  closeNodeDetailPopup();
   const byId = Object.fromEntries(goals.map(g=>[g.id, g]));
   const orderedGoals = order.map(id=>byId[id]).filter(g=>g && g.name.trim());
   const canvas = document.getElementById('mindmapCanvas');
@@ -670,19 +759,19 @@ function renderMindmap(){
     div.title = 'ダブルタップ／ダブルクリックで詳細へ';
     div.innerHTML = (n.isGoal ? `<span class="mm-rank-badge">${String(n.rank).padStart(2,'0')}</span>` : (n.done ? '✓ ' : '○ ')) + escapeHtml(n.text);
 
-    // ダブルクリック（マウス）で詳細を開く
+    // ダブルクリック（マウス）で詳細カードを開く
     div.addEventListener('dblclick', (e)=>{
       e.stopPropagation();
-      openNodeDetail(n.goalId);
+      showNodeDetail(n);
     });
-    // ダブルタップ（タッチ）を独自検知して詳細を開く
+    // ダブルタップ（タッチ）を独自検知して詳細カードを開く
     let lastTap = 0;
     div.addEventListener('touchend', (e)=>{
       const now = Date.now();
       if(now - lastTap < 350){
         e.preventDefault();
         e.stopPropagation();
-        openNodeDetail(n.goalId);
+        showNodeDetail(n);
       }
       lastTap = now;
     });
@@ -720,6 +809,7 @@ document.getElementById('mindmapBtn').addEventListener('click', ()=>{
   });
 })();
 document.getElementById('mindmapCloseBtn').addEventListener('click', ()=>{
+  closeNodeDetailPopup();
   document.getElementById('mindmapModal').classList.remove('open');
   document.body.style.overflow = '';
 });
