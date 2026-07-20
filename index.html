@@ -282,11 +282,12 @@
 </div>
 <div class="wrap">
 
-  <div class="card">
+  <div class="card" id="step1Card">
     <h2><span class="h2-title">一、書き出す</span> <small>LIST YOUR DESIRES</small></h2>
     <p class="desc">やりたいことをすべて並べよ。それぞれについて「得られるものの大きさ」と「達成の困難度」を見積もる。</p>
     <div id="goalList"></div>
     <button class="add-btn" id="addGoalBtn">＋ やりたいことを追加する</button>
+    <button class="reset-order-btn" id="jumpToStep3Btn" style="display:none; margin-top:14px;">↓ 並べ替え結果を見る</button>
   </div>
 
   <div class="card">
@@ -298,6 +299,7 @@
   <div class="card" id="resultsCard" style="display:none;">
     <h2><span class="h2-title">三、並べ替える</span> <small>YOUR CALL</small></h2>
     <p class="desc">一番上を全力で追え。余裕ができたら次へ。順番は▲▼でいつでも組み替えてよい。次の行動はどこまでも深掘りせよ。</p>
+    <button class="reset-order-btn" id="backToStep1Btn">← 一（書き出す）に戻る</button>
     <button class="reset-order-btn" id="resortBtn">↻ スコア順に並べ直す</button>
     <button class="reset-order-btn" id="mindmapBtn">🗺 俯瞰マップで見る</button>
     <div id="results"></div>
@@ -466,6 +468,13 @@ function autoWidth(el){
   el.style.width = Math.max(10, len + 2) + 'ch';
 }
 
+document.getElementById('backToStep1Btn').addEventListener('click', ()=>{
+  document.getElementById('step1Card').scrollIntoView({behavior:'smooth', block:'start'});
+});
+document.getElementById('jumpToStep3Btn').addEventListener('click', ()=>{
+  document.getElementById('resultsCard').scrollIntoView({behavior:'smooth', block:'start'});
+});
+
 document.getElementById('addGoalBtn').addEventListener('click', ()=>{
   goals.push(newGoal());
   saveState();
@@ -495,6 +504,7 @@ function judge(){
   saveState();
   renderResults();
   document.getElementById('resultsCard').style.display = 'block';
+  document.getElementById('jumpToStep3Btn').style.display = 'block';
   document.getElementById('resultsCard').scrollIntoView({behavior:'smooth', block:'start'});
 }
 document.getElementById('judgeBtn').addEventListener('click', judge);
@@ -996,6 +1006,7 @@ function applyImportedData(data){
   renderGoals();
   renderResults();
   document.getElementById('resultsCard').style.display = 'block';
+  document.getElementById('jumpToStep3Btn').style.display = 'block';
   flashMsg('importMsg');
 }
 
@@ -1105,6 +1116,21 @@ document.getElementById('copyPromptBtn').addEventListener('click', async ()=>{
 // init
 loadState();
 renderGoals();
+
+// 保存済みの並び順があれば、開いた瞬間にStep3（審判結果）を表示する
+(function restoreResultsIfAny(){
+  const validGoals = goals.filter(g => g.name.trim().length > 0);
+  const validIds = new Set(validGoals.map(g => g.id));
+  const restorableOrder = order.filter(id => validIds.has(id));
+  if(restorableOrder.length > 0){
+    order = restorableOrder;
+    validGoals.forEach(g => { if(!order.includes(g.id)) order.push(g.id); });
+    saveState();
+    renderResults();
+    document.getElementById('resultsCard').style.display = 'block';
+  document.getElementById('jumpToStep3Btn').style.display = 'block';
+  }
+})();
 </script>
 
 <script>
