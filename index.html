@@ -226,7 +226,7 @@
   .step-line{display:flex; align-items:center; gap:8px; flex-wrap:nowrap; max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:6px;}
   .step-line input[type=checkbox]{accent-color: var(--shu); width:15px; height:15px; cursor:pointer; flex-shrink:0;}
   .step-line input[type=text]{
-    flex:0 0 auto; min-width:110px; width:14ch; border:none; border-bottom:1px solid var(--line); background:transparent;
+    flex:0 0 auto; min-width:110px; width:170px; border:none; border-bottom:1px solid var(--line); background:transparent;
     font-size:13px; padding:5px 2px; color:var(--ink); font-family:'Noto Sans JP', sans-serif;
   }
   .step-line input[type=text]:focus{outline:none; border-color:var(--shu);}
@@ -463,9 +463,19 @@ function autoGrow(el){
   el.style.height = el.scrollHeight + 'px';
 }
 
+function measureTextWidth(text, font){
+  const canvas = measureTextWidth._canvas || (measureTextWidth._canvas = document.createElement('canvas'));
+  const ctx = canvas.getContext('2d');
+  ctx.font = font;
+  return ctx.measureText(text).width;
+}
+
 function autoWidth(el){
-  const len = (el.value || '').length;
-  el.style.width = Math.max(10, len + 2) + 'ch';
+  const text = el.value && el.value.length ? el.value : (el.placeholder || '');
+  const cs = getComputedStyle(el);
+  const font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  const w = measureTextWidth(text, font);
+  el.style.width = Math.max(110, Math.ceil(w) + 28) + 'px'; // 余白ぶんを足して全文が見えるようにする
 }
 
 document.getElementById('backToStep1Btn').addEventListener('click', ()=>{
@@ -1016,16 +1026,18 @@ function confirmAndImport(jsonText){
     data = JSON.parse(jsonText);
   }catch(e){
     alert('JSONの読み込みに失敗しました。内容が正しいか確認せよ。');
-    return;
+    return false;
   }
   const willReplace = goals.some(g=>g.name.trim().length>0);
   if(willReplace && !confirm('現在の「やりたいこと」はすべて上書きされる。よいか？')){
-    return;
+    return false;
   }
   try{
     applyImportedData(data);
+    return true;
   }catch(e){
     alert('読み込みに失敗しました：' + e.message);
+    return false;
   }
 }
 
@@ -1053,9 +1065,11 @@ document.getElementById('importPasteCancel').addEventListener('click', ()=>{
 document.getElementById('importPasteConfirm').addEventListener('click', ()=>{
   const text = document.getElementById('importPasteArea').value.trim();
   if(!text){ alert('JSONを貼り付けてから読み込め。'); return; }
-  confirmAndImport(text);
-  document.getElementById('importPastePanel').style.display = 'none';
-  document.getElementById('importPasteArea').value = '';
+  const success = confirmAndImport(text);
+  if(success){
+    document.getElementById('importPastePanel').style.display = 'none';
+    document.getElementById('importPasteArea').value = '';
+  }
 });
 
 function stepsToText(steps, depth){
