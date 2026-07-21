@@ -191,6 +191,11 @@
     display:inline-block; font-family:'JetBrains Mono', monospace; font-size:10px; font-weight:700;
     color: var(--gold); margin-right:5px;
   }
+  .mm-check{
+    display:inline-block; cursor:pointer; padding:2px 5px; margin:-2px -2px -2px -4px;
+    border-radius:4px;
+  }
+  .mm-check:hover, .mm-check:active{background: rgba(232,181,101,0.18);}
 
   /* ---------- 俯瞰マップ：詳細カード ---------- */
   .mm-detail-backdrop{
@@ -222,27 +227,28 @@
   .mm-detail-btns{display:flex; gap:8px; margin-top:14px;}
   .mm-detail-btns .util-btn{min-width:0; font-size:12px; padding:9px 10px;}
 
-  .step-node{margin-bottom:6px; max-width:100%;}
-  .step-line{display:flex; align-items:center; gap:8px; flex-wrap:nowrap; max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:6px;}
-  .step-line input[type=checkbox]{accent-color: var(--shu); width:15px; height:15px; cursor:pointer; flex-shrink:0;}
-  .step-line input[type=text]{
-    flex:0 0 auto; min-width:110px; width:170px; border:none; border-bottom:1px solid var(--line); background:transparent;
-    font-size:13px; padding:5px 2px; color:var(--ink); font-family:'Noto Sans JP', sans-serif;
+  .step-node{margin-bottom:10px; max-width:100%;}
+  .step-line-main{display:flex; align-items:flex-start; gap:8px; max-width:100%;}
+  .step-line-main input[type=checkbox]{accent-color: var(--shu); width:15px; height:15px; cursor:pointer; flex-shrink:0; margin-top:6px;}
+  .step-line-main textarea{
+    flex:1; min-width:0; resize:none; overflow:hidden;
+    border:none; border-bottom:1px solid var(--line); background:transparent;
+    font-size:13px; line-height:1.5; padding:5px 2px; color:var(--ink); font-family:'Noto Sans JP', sans-serif;
   }
-  .step-line input[type=text]:focus{outline:none; border-color:var(--shu);}
-  .step-line.done input[type=text]{text-decoration: line-through; color:var(--ink-soft);}
-  .step-line input[type=date]{
+  .step-line-main textarea:focus{outline:none; border-color:var(--shu);}
+  .step-line-main.done textarea{text-decoration: line-through; color:var(--ink-soft);}
+  .step-line-actions{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin: 5px 0 0 23px;}
+  .step-line-actions input[type=date]{
     border:none; border-bottom:1px solid var(--line); background:transparent;
     font-size:11.5px; padding:5px 2px; color:var(--ink-soft); font-family:'JetBrains Mono', monospace;
     max-width:118px; flex-shrink:0;
   }
-  .step-line input[type=date]:focus{outline:none; border-color:var(--shu);}
-  .step-line input[type=date].has-date{color:var(--shu); font-weight:600;}
-  .step-line.done input[type=date]{text-decoration: line-through; color:var(--ink-soft);}
-  .step-line button{background:none; border:none; cursor:pointer; font-size:12.5px; color:var(--ink-soft); padding:2px 5px; flex-shrink:0; white-space:nowrap;}
-  .step-line button:hover{color:var(--shu);}
-  .step-line .add-sibling-btn{color:var(--blue);}
-  .step-line .add-sibling-btn:hover{color:var(--gold);}
+  .step-line-actions input[type=date]:focus{outline:none; border-color:var(--shu);}
+  .step-line-actions input[type=date].has-date{color:var(--shu); font-weight:600;}
+  .step-line-actions button{background:none; border:none; cursor:pointer; font-size:12.5px; color:var(--ink-soft); padding:2px 4px; flex-shrink:0; white-space:nowrap;}
+  .step-line-actions button:hover{color:var(--shu);}
+  .step-line-actions .add-sibling-btn{color:var(--blue);}
+  .step-line-actions .add-sibling-btn:hover{color:var(--gold);}
   .step-children{margin-left:18px; border-left:1px dashed var(--line); padding-left:10px; margin-top:6px; max-width:calc(100% - 18px);}
   .add-root-step{
     margin-top:8px; background:transparent; border:1px dashed var(--ink-soft); color:var(--ink-soft);
@@ -463,21 +469,6 @@ function autoGrow(el){
   el.style.height = el.scrollHeight + 'px';
 }
 
-function measureTextWidth(text, font){
-  const canvas = measureTextWidth._canvas || (measureTextWidth._canvas = document.createElement('canvas'));
-  const ctx = canvas.getContext('2d');
-  ctx.font = font;
-  return ctx.measureText(text).width;
-}
-
-function autoWidth(el){
-  const text = el.value && el.value.length ? el.value : (el.placeholder || '');
-  const cs = getComputedStyle(el);
-  const font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
-  const w = measureTextWidth(text, font);
-  el.style.width = Math.max(110, Math.ceil(w) + 28) + 'px'; // 余白ぶんを足して全文が見えるようにする
-}
-
 document.getElementById('backToStep1Btn').addEventListener('click', ()=>{
   document.getElementById('step1Card').scrollIntoView({behavior:'smooth', block:'start'});
 });
@@ -590,6 +581,25 @@ function stepProgressLabel(steps){
   return total ? ` (${done}/${total})` : '';
 }
 
+function findStepById(steps, id){
+  for(const s of (steps || [])){
+    if(s.id === id) return s;
+    const found = findStepById(s.children, id);
+    if(found) return found;
+  }
+  return null;
+}
+
+function toggleMindmapStepDone(goalId, stepId){
+  const g = goals.find(x=>x.id === goalId);
+  if(!g) return;
+  const step = findStepById(g.steps, stepId);
+  if(!step) return;
+  step.done = !step.done;
+  saveState();
+  renderMindmap();
+}
+
 /* ---------- 深掘りモーダル（別ページ） ---------- */
 let currentDrillGoalId = null;
 
@@ -654,6 +664,7 @@ function buildMindmapLayout(orderedGoals){
       dueDate: data.dueDate || '',
       rank: ctx.rank,
       goalId: ctx.goalId,
+      stepId: isGoal ? undefined : data.id,
       path: path,
       value: isGoal ? data.value : undefined,
       difficulty: isGoal ? data.difficulty : undefined,
@@ -776,8 +787,21 @@ function renderMindmap(){
     div.className = 'mm-node' + (n.isGoal ? ' mm-goal' : '') + (n.isGoal && n.rank===1 ? ' mm-top1' : '') + (!n.isGoal && n.done ? ' mm-done' : '');
     div.style.left = (n.x + padX) + 'px';
     div.style.top = (n.y + padY) + 'px';
-    div.title = 'ダブルタップ／ダブルクリックで詳細へ';
-    div.innerHTML = (n.isGoal ? `<span class="mm-rank-badge">${String(n.rank).padStart(2,'0')}</span>` : (n.done ? '✓ ' : '○ ')) + escapeHtml(n.text);
+    div.title = n.isGoal ? 'ダブルタップ／ダブルクリックで詳細へ' : '○をタップで完了切替／ダブルタップで詳細へ';
+    div.innerHTML = n.isGoal
+      ? `<span class="mm-rank-badge">${String(n.rank).padStart(2,'0')}</span>${escapeHtml(n.text)}`
+      : `<span class="mm-check">${n.done ? '✓' : '○'}</span> ${escapeHtml(n.text)}`;
+
+    if(!n.isGoal){
+      const checkEl = div.querySelector('.mm-check');
+      checkEl.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        toggleMindmapStepDone(n.goalId, n.stepId);
+      });
+      checkEl.addEventListener('touchend', (e)=>{
+        e.stopPropagation();
+      });
+    }
 
     // ダブルクリック（マウス）で詳細カードを開く
     div.addEventListener('dblclick', (e)=>{
@@ -856,9 +880,11 @@ function renderStepList(stepArr, container, goal){
     const node = document.createElement('div');
     node.className = 'step-node';
     node.innerHTML = `
-      <div class="step-line ${step.done?'done':''}">
+      <div class="step-line-main ${step.done?'done':''}">
         <input type="checkbox" ${step.done?'checked':''} title="達成したらチェック">
-        <input type="text" placeholder="次にやること・達成条件" value="${escapeHtml(step.text)}">
+        <textarea rows="1" placeholder="次にやること・達成条件">${escapeHtml(step.text)}</textarea>
+      </div>
+      <div class="step-line-actions">
         <input type="date" class="${step.dueDate?'has-date':''}" value="${step.dueDate||''}" title="期限（任意）">
         <button class="add-sibling-btn" title="同じ階層に追加">＋同列</button>
         <button class="add-child-btn" title="さらに深掘り">＋深掘り</button>
@@ -867,18 +893,18 @@ function renderStepList(stepArr, container, goal){
       <div class="step-children"></div>
     `;
     const checkbox = node.querySelector('input[type=checkbox]');
-    const textInput = node.querySelector('input[type=text]');
+    const textInput = node.querySelector('textarea');
     const dateInput = node.querySelector('input[type=date]');
-    const lineEl = node.querySelector('.step-line');
+    const mainEl = node.querySelector('.step-line-main');
     const childrenEl = node.querySelector('.step-children');
     checkbox.addEventListener('change', ()=>{
       step.done = checkbox.checked;
-      lineEl.classList.toggle('done', step.done);
+      mainEl.classList.toggle('done', step.done);
       saveState();
     });
     textInput.addEventListener('input', ()=>{
       step.text = textInput.value;
-      autoWidth(textInput);
+      autoGrow(textInput);
       saveState();
     });
     dateInput.addEventListener('change', ()=>{
@@ -907,7 +933,7 @@ function renderStepList(stepArr, container, goal){
       renderStepList(step.children, childrenEl, goal);
     }
     container.appendChild(node);
-    autoWidth(textInput);
+    autoGrow(textInput);
   });
   // 既存ノード以外を消さないよう、呼び出し側で container を都度クリアしているケースに対応
   if(container.dataset) container.dataset.rendered = '1';
